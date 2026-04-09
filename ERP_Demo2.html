@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>服務業 ERP 全流程展示系統</title>
+    <style>
+        :root { --primary: #2563eb; --success: #16a34a; --warning: #ca8a04; --bg: #f8fafc; }
+        body { font-family: "Microsoft JhengHei", sans-serif; background: var(--bg); margin: 0; display: flex; height: 100vh; }
+        
+        /* 側邊導覽 */
+        .sidebar { width: 220px; background: #1e293b; color: white; padding: 20px; }
+        .nav-item { padding: 12px; margin-bottom: 8px; cursor: pointer; border-radius: 6px; transition: 0.3s; }
+        .nav-item:hover { background: #334155; }
+        .nav-item.active { background: var(--primary); }
+
+        /* 主內容區 */
+        .main { flex: 1; padding: 30px; overflow-y: auto; }
+        .step-panel { display: none; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        .step-panel.active { display: block; }
+        
+        h2 { border-left: 5px solid var(--primary); padding-left: 15px; margin-bottom: 25px; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .form-group { display: flex; flex-direction: column; margin-bottom: 15px; }
+        label { font-weight: bold; margin-bottom: 5px; font-size: 0.9em; }
+        input, select { padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; }
+
+        /* 模擬排查動畫 */
+        .loader { display: none; text-align: center; padding: 40px; }
+        .check-item { margin: 10px 0; padding: 10px; border-radius: 5px; }
+        .pass { background: #dcfce7; color: #166534; }
+
+        /* 文件樣式 */
+        .contract-preview { border: 2px solid #333; padding: 40px; background: white; max-width: 600px; margin: 0 auto; line-height: 1.8; }
+        
+        /* 報表樣式 */
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #e2e8f0; padding: 12px; text-align: center; }
+        th { background: #f1f5f9; }
+        .btn { background: var(--primary); color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 1em; }
+        .btn:disabled { background: #cbd5e1; }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <h3>ERP 流程模擬</h3>
+        <div class="nav-item active" onclick="showStep(1)" id="nav1">1. Input 申請填寫</div>
+        <div class="nav-item" onclick="showStep(2)" id="nav2">2. Mapping 自動排查</div>
+        <div class="nav-item" onclick="showStep(3)" id="nav3">3. 契約文件生成</div>
+        <div class="nav-item" onclick="showStep(4)" id="nav4">4. Output 報表產出</div>
+    </div>
+
+    <div class="main">
+        <div class="step-panel active" id="step1">
+            <h2>Step 1. 人員契約申請表單</h2>
+            <div class="form-grid">
+                <div class="form-group"><label>a. 人員名稱</label><input type="text" id="empName" value="張小明"></div>
+                <div class="form-group"><label>b. 優先順序</label><select id="priority"><option>緊急</option><option selected>一般</option></select></div>
+                <div class="form-group"><label>c. 異動工作案點 (需與ERP一致)</label>
+                    <select id="siteId">
+                        <option value="S001">台北101商辦案點</option>
+                        <option value="S002">國泰人壽大樓案點</option>
+                    </select>
+                </div>
+                <div class="form-group"><label>d. 班別性質</label>
+                    <select id="shiftType"><option>週休二日</option><option>國定假日上工</option><option>排班制</option></select>
+                </div>
+                <div class="form-group"><label>e. 加班案點薪資 (時薪)</label><input type="number" id="overtimeWage" value="300"></div>
+                <div class="form-group"><label>f. 案點薪資 (月薪/時薪)</label><input type="number" id="baseWage" value="30000"></div>
+                <div class="form-group"><label>g. 時段</label><input type="text" id="timeSlot" value="08:00-17:00"></div>
+                <div class="form-group"><label>h. 生效日</label><input type="date" id="effectiveDate" value="2026-05-01"></div>
+            </div>
+            <button class="btn" onclick="runMapping()">送出申請並啟動排查</button>
+        </div>
+
+        <div class="step-panel" id="step2">
+            <h2>Step 2. 數據庫自動校驗 (Mapping)</h2>
+            <div id="mappingStatus">
+                <div class="check-item pass">✓ 正在比對人員數據庫... 找到「張小明」</div>
+                <div class="check-item pass">✓ 檢查時段衝突... 該時段無重複排班</div>
+                <div class="check-item pass">✓ 檢查法規 (七休一)... 該員上週符合排班規範</div>
+                <div class="check-item pass">✓ 案點代碼對應成功：S001</div>
+            </div>
+            <button class="btn" onclick="showStep(3)">排查完成，前往製作契約</button>
+        </div>
+
+        <div class="step-panel" id="step3">
+            <h2>Step 3. 勞工契約自動生成</h2>
+            <div class="form-group">
+                <label>選擇契約性質</label>
+                <select onchange="updateContract(this.value)">
+                    <option value="A">長期駐點契約</option>
+                    <option value="B1">短期支援 (代班)</option>
+                    <option value="B2">短期支援 (實習)</option>
+                </select>
+            </div>
+            <div class="contract-preview" id="contractView">
+                <h3 style="text-align: center;">勞工長期駐點契約書</h3>
+                <p>甲方：服務業管理公司 / 乙方：<span id="c_name">張小明</span></p>
+                <p>茲因乙方於案點 <strong id="c_site">台北101商辦案點</strong> 進行駐點工作，約定如下：</p>
+                <ul>
+                    <li>生效日期：<span id="c_date">2026-05-01</span></li>
+                    <li>約定時段：<span id="c_time">08:00-17:00</span></li>
+                    <li>約定薪資：<span id="c_wage">30000</span> 元</li>
+                </ul>
+                <p style="text-align: right; margin-top: 50px;">(乙方簽署蓋章處)</p>
+            </div>
+            <br>
+            <button class="btn" onclick="showStep(4)">簽署歸檔並更新系統</button>
+        </div>
+
+        <div class="step-panel" id="step4">
+            <h2>Step 4. 系統自動產出 (Output)</h2>
+            
+            <h3>b. 排班表 (萬年曆版)</h3>
+            <table>
+                <thead><tr><th>日期</th><th>案點</th><th>時段</th><th>薪資依據</th></tr></thead>
+                <tbody id="calendarTbody"></tbody>
+            </table>
+
+            <h3>c/d. 人事成本與發放薪資明細</h3>
+            <table>
+                <thead><tr><th>案點名稱</th><th>工作時數</th><th>外部發放 (給員工)</th><th>內部成本 (含攤提)</th></tr></thead>
+                <tbody id="costTbody"></tbody>
+            </table>
+            <p class="hint">註：內部成本已依每日 98 元攤提率按工時比例計算。</p>
+        </div>
+    </div>
+
+    <script>
+        function showStep(step) {
+            document.querySelectorAll('.step-panel').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.getElementById('step' + step).classList.add('active');
+            document.getElementById('nav' + step).classList.add('active');
+            
+            if(step === 3) prepareContract();
+            if(step === 4) generateOutput();
+        }
+
+        function runMapping() {
+            alert('系統正在進行排查：\n1. 檢核人員線上合法性\n2. 比對案點資料庫\n3. 驗證班表抵觸...');
+            showStep(2);
+        }
+
+        function prepareContract() {
+            document.getElementById('c_name').innerText = document.getElementById('empName').value;
+            document.getElementById('c_site').innerText = document.getElementById('siteId').options[document.getElementById('siteId').selectedIndex].text;
+            document.getElementById('c_date').innerText = document.getElementById('effectiveDate').value;
+            document.getElementById('c_time').innerText = document.getElementById('timeSlot').value;
+            document.getElementById('c_wage').innerText = document.getElementById('baseWage').value;
+        }
+
+        function updateContract(val) {
+            const titles = { 'A': '勞工長期駐點契約書', 'B1': '短期代班支援協議', 'B2': '實習合約' };
+            document.querySelector('#contractView h3').innerText = titles[val];
+        }
+
+        function generateOutput() {
+            const wage = parseFloat(document.getElementById('baseWage').value);
+            const hourly = wage > 1000 ? (wage / 240).toFixed(2) : wage;
+            
+            // 模擬萬年曆
+            const tbody = document.getElementById('calendarTbody');
+            tbody.innerHTML = `
+                <tr><td>2026-05-01</td><td>台北101</td><td>08:00-17:00</td><td>$${hourly}/hr</td></tr>
+                <tr><td>2026-05-02</td><td>台北101</td><td>08:00-17:00</td><td>$${hourly}/hr</td></tr>
+            `;
+
+            // 模擬成本拆比 (假設當天做了兩案點)
+            const costTbody = document.getElementById('costTbody');
+            const shareA = (4/8 * 98).toFixed(1);
+            costTbody.innerHTML = `
+                <tr><td>台北101</td><td>4 hrs</td><td>$${(hourly*4).toFixed(0)}</td><td>$${(hourly*4 + parseFloat(shareA)).toFixed(1)}</td></tr>
+                <tr><td>國泰大樓</td><td>4 hrs</td><td>$${(hourly*4).toFixed(0)}</td><td>$${(hourly*4 + parseFloat(shareA)).toFixed(1)}</td></tr>
+            `;
+        }
+    </script>
+</body>
+</html>

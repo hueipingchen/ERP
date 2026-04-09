@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>ERP 雙軌流程 - 新人申請與代班調度</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .flow-card { transition: all 0.3s ease; border-top: 4px solid #cbd5e1; }
+        .flow-card.active-step { border-top-color: #3b82f6; background-color: #f8fafc; }
+        .tab-btn.active { border-bottom: 3px solid #3b82f6; color: #3b82f6; font-weight: bold; }
+    </style>
+</head>
+<body class="bg-slate-100 p-4 md:p-8">
+
+<div class="max-w-7xl mx-auto">
+    <div class="grid grid-cols-4 gap-4 mb-8 text-center">
+        <div class="bg-white p-3 rounded shadow-sm border-t-4 border-blue-500"><p class="text-xs text-slate-400">Step 1</p><p class="font-bold">資料輸入/申請</p></div>
+        <div class="bg-white p-3 rounded shadow-sm opacity-50"><p class="text-xs text-slate-400">Step 2</p><p class="font-bold">需求/萬年曆</p></div>
+        <div class="bg-white p-3 rounded shadow-sm opacity-50"><p class="text-xs text-slate-400">Step 3</p><p class="font-bold">App 打卡</p></div>
+        <div class="bg-white p-3 rounded shadow-sm opacity-50"><p class="text-xs text-slate-400">Step 4</p><p class="font-bold">薪資結算</p></div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        <div class="lg:col-span-4 space-y-6">
+            <div class="bg-white rounded-2xl shadow-xl overflow-hidden border">
+                <div class="flex border-b">
+                    <button onclick="switchMode('new')" id="tab-new" class="tab-btn active flex-1 py-4 text-sm">新人快充申請</button>
+                    <button onclick="switchMode('exist')" id="tab-exist" class="tab-btn flex-1 py-4 text-sm text-slate-400">既有人員調度</button>
+                </div>
+
+                <div id="mode-new" class="p-6 space-y-4">
+                    <h3 class="text-blue-600 font-bold text-sm">🆕 系統無資料，建立新契約</h3>
+                    <div><label class="block text-xs font-bold text-slate-500 mb-1">姓名</label>
+                        <input type="text" id="new-name" placeholder="請輸入新人姓名" class="w-full border p-2 rounded-lg"></div>
+                    <div><label class="block text-xs font-bold text-slate-500 mb-1">契約類型</label>
+                        <select id="new-type" class="w-full border p-2 rounded-lg bg-gray-50">
+                            <option value="long">長期駐點 (月薪)</option>
+                            <option value="short">時薪代班 (時薪)</option>
+                        </select>
+                    </div>
+                    <div><label class="block text-xs font-bold text-slate-500 mb-1">約定金額</label>
+                        <input type="number" id="new-wage" value="30000" class="w-full border p-2 rounded-lg"></div>
+                    <button onclick="submitNewUser()" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold shadow-lg mt-4">完成申請並進入排班</button>
+                </div>
+
+                <div id="mode-exist" class="hidden p-6 space-y-4">
+                    <h3 class="text-orange-600 font-bold text-sm">📅 已有契約，匯入代班需求</h3>
+                    <div><label class="block text-xs font-bold text-slate-500 mb-1">選擇人員</label>
+                        <select id="exist-user" class="w-full border p-2 rounded-lg">
+                            <option value="陳經理">陳經理 (現有長期)</option>
+                            <option value="王大同">王大同 (現有時薪)</option>
+                        </select>
+                    </div>
+                    <div class="bg-orange-50 p-4 rounded-xl border border-orange-100">
+                        <label class="block text-xs font-bold text-orange-700 mb-2">📥 匯入代班需求 (案點/日期)</label>
+                        <select id="exist-site" class="w-full border p-2 rounded-lg mb-2">
+                            <option value="SOGO忠孝">SOGO忠孝</option>
+                            <option value="微風廣場">微風廣場</option>
+                        </select>
+                        <input type="date" id="exist-date" value="2026-04-12" class="w-full border p-2 rounded-lg">
+                    </div>
+                    <button onclick="submitExistingAssignment()" class="w-full bg-orange-600 text-white py-3 rounded-xl font-bold shadow-lg mt-4">匯入需求並更新萬年曆</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="lg:col-span-8 space-y-6">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border">
+                <h2 class="text-lg font-bold mb-4 flex justify-between items-center">
+                    <span>系統萬年曆即時狀態</span>
+                    <span id="status-tag" class="text-xs bg-slate-100 px-2 py-1 rounded text-slate-400">等待資料輸入...</span>
+                </h2>
+                <div class="grid grid-cols-7 gap-1 bg-slate-200 border border-slate-200 p-1 rounded-lg" id="calendar-view">
+                    </div>
+
+                <div class="mt-8 flex items-center justify-between bg-slate-50 p-6 rounded-2xl border-2 border-dashed">
+                    <div class="space-y-1">
+                        <p class="text-xs font-bold text-slate-400">APP 預期打卡案點</p>
+                        <p class="text-xl font-bold text-slate-800" id="app-site">---</p>
+                    </div>
+                    <div class="flex gap-4">
+                        <button onclick="doPunch()" id="punch-btn" class="bg-slate-800 text-white px-8 py-3 rounded-xl font-bold opacity-30 cursor-not-allowed" disabled>模擬下班打卡</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="settlement-area" class="hidden grid grid-cols-2 gap-4">
+                <div class="bg-white p-5 rounded-2xl border-t-4 border-blue-500 shadow-sm">
+                    <p class="text-xs text-slate-400 font-bold mb-1">D. 外部發放 (對員工)</p>
+                    <div class="text-2xl font-bold" id="res-d">$0</div>
+                    <p class="text-[10px] text-blue-500" id="logic-d">計算中...</p>
+                </div>
+                <div class="bg-white p-5 rounded-2xl border-t-4 border-emerald-500 shadow-sm">
+                    <p class="text-xs text-slate-400 font-bold mb-1">C. 內部成本 (對案點)</p>
+                    <div class="text-2xl font-bold text-emerald-600" id="res-c">$0</div>
+                    <p class="text-[10px] text-emerald-500">薪資 + $98 固定攤提</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    let currentTask = { name: "", site: "系統預設案點", hourly: 0, date: "" };
+
+    function switchMode(mode) {
+        document.getElementById('mode-new').classList.toggle('hidden', mode !== 'new');
+        document.getElementById('mode-exist').classList.toggle('hidden', mode !== 'exist');
+        document.getElementById('tab-new').className = mode === 'new' ? 'tab-btn active flex-1 py-4 text-sm' : 'tab-btn flex-1 py-4 text-sm text-slate-400';
+        document.getElementById('tab-exist').className = mode === 'exist' ? 'tab-btn active flex-1 py-4 text-sm' : 'tab-btn flex-1 py-4 text-sm text-slate-400';
+    }
+
+    // 處理新人申請
+    function submitNewUser() {
+        const name = document.getElementById('new-name').value;
+        const type = document.getElementById('new-type').value;
+        const wage = parseFloat(document.getElementById('new-wage').value);
+        
+        if(!name) { alert("請輸入新人姓名"); return; }
+
+        currentTask = {
+            name: name,
+            site: "新案點 (初始化)",
+            hourly: type === 'long' ? (wage / 240) : wage,
+            date: "2026-04-10"
+        };
+
+        updateUI("新人入職成功！已自動產出初步萬年曆並開啟打卡。");
+    }
+
+    // 處理既有人員代班需求
+    function submitExistingAssignment() {
+        const name = document.getElementById('exist-user').value;
+        const site = document.getElementById('exist-site').value;
+        const date = document.getElementById('exist-date').value;
+
+        currentTask = {
+            name: name,
+            site: site,
+            hourly: (name === '陳經理' ? 150 : 250), // 模擬既有契約時薪
+            date: date
+        };
+
+        updateUI(`代班需求匯入成功！人員：${name} 案點：${site}`);
+    }
+
+    function updateUI(msg) {
+        document.getElementById('status-tag').innerText = "數據已同步";
+        document.getElementById('status-tag').className = "text-xs bg-green-100 px-2 py-1 rounded text-green-600";
+        document.getElementById('app-site').innerText = currentTask.site;
+        document.getElementById('punch-btn').disabled = false;
+        document.getElementById('punch-btn').className = "bg-slate-800 text-white px-8 py-3 rounded-xl font-bold shadow-lg hover:bg-slate-700 transition";
+        
+        renderCalendar();
+        alert(msg);
+    }
+
+    function renderCalendar() {
+        const cal = document.getElementById('calendar-view');
+        cal.innerHTML = "";
+        for(let i=1; i<=28; i++) {
+            // 隨機產生既有班表感，以及新增的一個突顯點
+            const isTarget = i === 12; 
+            cal.innerHTML += `
+                <div class="bg-white p-1 min-h-[50px] border border-slate-100 flex flex-col justify-between">
+                    <span class="text-[9px] text-slate-300">${i}</span>
+                    ${isTarget ? `<div class="bg-blue-500 h-2 rounded-full mb-1"></div><div class="text-[8px] text-blue-600 truncate">${currentTask.site}</div>` : ''}
+                </div>
+            `;
+        }
+    }
+
+    function doPunch() {
+        const pay = currentTask.hourly * 8;
+        const cost = pay + 98;
+
+        document.getElementById('settlement-area').classList.remove('hidden');
+        document.getElementById('res-d').innerText = "$" + pay.toLocaleString();
+        document.getElementById('logic-d').innerText = `依契約換算：$${currentTask.hourly.toFixed(1)}/hr x 8h`;
+        document.getElementById('res-c').innerText = "$" + cost.toLocaleString();
+
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    }
+</script>
+
+</body>
+</html>
